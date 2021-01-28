@@ -86,6 +86,7 @@
 				D886394625C2CBA90062D8A4 /* Sources */,
 				D886394725C2CBA90062D8A4 /* Frameworks */,
 				D886394825C2CBA90062D8A4 /* Resources */,
+				D83592A125C2FDE700B1A4D8 /* Strip & Format */,
 			);
 			buildRules = (
 			);
@@ -146,6 +147,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		D83592A125C2FDE700B1A4D8 /* Strip & Format */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Strip & Format";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = ". ${SRCROOT}/RealmPractice/strip-frameworks.sh\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		D886394625C2CBA90062D8A4 /* Sources */ = {

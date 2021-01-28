@@ -65,7 +65,7 @@ class ViewController: UIViewController {
 		view.addSubview(textView)
 		
 		let buttonFrame			= CGRect(x: textFrame.origin.x, y: textFrame.origin.y + textFrame.height,
-											width: textFrame.width, height: 40.0)
+		               			         width: textFrame.width, height: 40.0)
 		
 		addButton				= UIButton(frame: buttonFrame)
 		
@@ -137,7 +137,7 @@ class ViewController: UIViewController {
 		}
 		
 		let config = Realm.Configuration(fileURL: backupURL,
-										readOnly: true)
+		                                 readOnly: true)
 		
 		guard let backupRealm = try? Realm(configuration: config) else {
 			// Failed, clean backup file
@@ -182,7 +182,7 @@ class ViewController: UIViewController {
 		}
 		
 		progressToken	= session.addProgressNotification(for: .download,
-														  mode: .forCurrentlyOutstandingWork) { [weak self] progress in
+		             	                                  mode: .forCurrentlyOutstandingWork) { [weak self] progress in
 			if progress.isTransferComplete {
 				DispatchQueue.main.async { [weak self] in
 					self?.log("Transfer finished")
@@ -247,8 +247,8 @@ class ViewController: UIViewController {
 			realmRestore()
 			realmSetup()
 		} catch {
-		   log("Error: \(error.localizedDescription)")
-		   realmCleanup(delete: true)
+			log("Error: \(error.localizedDescription)")
+			realmCleanup(delete: true)
 		}
 	}
 	
@@ -258,7 +258,7 @@ class ViewController: UIViewController {
 		realmSetupClientReset()
 
 		Realm.asyncOpen(configuration: config,
-						callbackQueue: DispatchQueue.main) { [weak self] result in
+		                callbackQueue: DispatchQueue.main) { [weak self] result in
 			switch result {
 			case let .success(openRealm):
 				self?.realm = openRealm
