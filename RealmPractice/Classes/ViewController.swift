@@ -100,15 +100,6 @@ class ViewController: UIViewController {
 			}
 		}
 	}
-
-	override func viewWillAppear(_ animated: Bool) {
-		/*
-		 // Cleanup test
-		 DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-			self?.realmCleanup()
-		 }
-		 */
-	}
 	
 	// MARK: - Realm operations
 	
@@ -121,8 +112,10 @@ class ViewController: UIViewController {
 			if fm.fileExists(atPath: backupURL.path) {
 				try fm.removeItem(at: backupURL)
 			}
+			
 			// Make a copy of the current realm
 			try fm.moveItem(atPath: backupPath, toPath: backupURL.path)
+			
 			log("Realm backup successful")
 		} catch {
 			log("Realm backup failed: \(error.localizedDescription)")
@@ -285,7 +278,9 @@ class ViewController: UIViewController {
 	}
 	
 	func openRealm(for user: User) {
-		// Suggested that async is used at first launch, sync after
+		// It's suggested that async is used at first launch, sync after
+		// This check is very simple: when opening multiple realms,
+		// or recovering from a client reset, you may want to have a smarter one
 		if realmDirectoryExists(for: user) {
 			realmSyncOpen(with: user)
 		} else {
@@ -363,7 +358,7 @@ class ViewController: UIViewController {
 		}
 	}
 	
-	// MARK: - DB Fill in
+	// MARK: - DB Fill in - just an example here
 	
 	fileprivate func createDocument() -> TestData {
 		let document	= TestData()
