@@ -1,4 +1,4 @@
-##Realm for iOS: best practices
+## Realm for iOS: best practices
 
 This sample code illustrates some of the best practices suggested for the MongoDB Realm Swift SDK.
 
