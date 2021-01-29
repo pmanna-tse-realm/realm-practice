@@ -203,13 +203,20 @@ class ViewController: UIViewController {
 		guard app.syncManager.errorHandler == nil else { return }
 		
 		app.syncManager.errorHandler	= { [weak self] error, session in
-			let syncError = error as! SyncError
+			let syncError	= error as! SyncError
+			var fileURL: URL?
+//			var fileURL		= self?.realm?.configuration.fileURL
+			
+			// Extract failing partition from the session, detect which fileURL we're going to backup
+			if let partition = session?.configuration()?.partitionValue as? String {
+				fileURL	= app.currentUser?.configuration(partitionValue: partition).fileURL
+			}
 			
 			switch syncError.code {
 			case .clientResetError:
 				if let (path, clientResetToken) = syncError.clientResetInfo() {
 					DispatchQueue.main.async { [weak self] in
-						guard let self = self, let realmConfigURL = self.realm?.configuration.fileURL else { return }
+						guard let self = self, let realmConfigURL = fileURL else { return }
 						
 						self.log("The database is out of sync, resetting client…")
 						
