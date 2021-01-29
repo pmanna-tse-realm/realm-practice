@@ -166,12 +166,15 @@ class ViewController: UIViewController {
 		}
 	}
 	
-	func realmUserURL(for user: User) -> URL {
-		return documentsURL.appendingPathComponent(realmFolder).appendingPathComponent(appId).appendingPathComponent(user.id)
-	}
-	
-	func realmDirectoryExists(for user: User) -> Bool {
-		return FileManager.default.fileExists(atPath: realmUserURL(for: user).path)
+	func realmExists(for user: User) -> Bool {
+		if let realmFileURL	= user.configuration(partitionValue: partitionValue).fileURL {
+			return FileManager.default.fileExists(atPath: realmFileURL.path)
+		}
+		
+		// Approximate substitute, just check if the user folder is around
+		let userDirectoryURL	= documentsURL.appendingPathComponent(realmFolder).appendingPathComponent(appId).appendingPathComponent(user.id)
+		
+		return FileManager.default.fileExists(atPath: userDirectoryURL.path)
 	}
 	
 	func realmSetupProgress(for session: SyncSession?) {
@@ -281,7 +284,7 @@ class ViewController: UIViewController {
 		// It's suggested that async is used at first launch, sync after
 		// This check is very simple: when opening multiple realms,
 		// or recovering from a client reset, you may want to have a smarter one
-		if realmDirectoryExists(for: user) {
+		if realmExists(for: user) {
 			realmSyncOpen(with: user)
 		} else {
 			realmAsyncOpen(with: user)
