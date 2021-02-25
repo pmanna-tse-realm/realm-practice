@@ -18,30 +18,39 @@ let userAPIKey		= ""
 let appId			= "<Realm App ID>"
 
 let appConfig		= AppConfiguration(baseURL: nil, transport: nil, localAppName: nil,
-										localAppVersion: nil, defaultRequestTimeoutMS: 15000)
+             		                   localAppVersion: nil, defaultRequestTimeoutMS: 15000)
 let app				= App(id: appId, configuration: appConfig)
 let documentsURL	= URL(fileURLWithPath: NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first!)
 
-class TestData: Object {
+class UserEmbed: EmbeddedObject {
+	@objc dynamic var embeddedName: String = ""
+	@objc dynamic var embeddedNumber: Int = 0
+}
+
+class UserData: Object {
 	@objc dynamic var _id = ObjectId.generate()
 	@objc dynamic var _partition: String = ""
-	let doubleValue = RealmOptional<Double>()
-	let longInt = RealmOptional<Int>()
-	let mediumInt = RealmOptional<Int>()
-	
+	let embedded = RealmSwift.List<UserEmbed>()
+	@objc dynamic var name: String?
 	override static func primaryKey() -> String? {
 		return "_id"
 	}
 }
 
+func syncLog(level: SyncLogLevel, message: String) {
+	Logger.log("Sync: (\(level.rawValue)) \(message)")
+}
+
 class ViewController: UIViewController {
 	let dateFormatter	= ISO8601DateFormatter()
+	let numFormatter	= NumberFormatter()
 	var textView: UITextView!
 	var addButton: UIButton!
 	var realm: Realm?
-	var objects: Results<TestData>!
+	var objects: Results<UserData>!
 	var notificationToken: NotificationToken?
 	var progressToken: SyncSession.ProgressNotificationToken?
+	var progressAmount = 0
 
 	func log(_ text: String) {
 		textView.text += "[\(dateFormatter.string(from: Date()))] - \(text)\n"
@@ -53,6 +62,8 @@ class ViewController: UIViewController {
 		// Do any additional setup after loading the view.
 		dateFormatter.formatOptions	= [.withFullDate, .withFullTime]
 		dateFormatter.timeZone		= TimeZone(secondsFromGMT: 0)
+		
+		numFormatter.numberStyle	= .decimal
 		
 		view.backgroundColor	= .systemBackground
 		
@@ -81,8 +92,9 @@ class ViewController: UIViewController {
 
 		log("Application started")
 		
-		app.syncManager.logLevel		= .detail
-		
+		app.syncManager.logLevel	= .detail
+		app.syncManager.logger		= syncLog
+
 		if let user = app.currentUser {
 			log("Skipped login, syncing…")
 			
@@ -162,13 +174,13 @@ class ViewController: UIViewController {
 		// This part needs to be tailored for the specific realm we're restoring
 		// In a nutshell, we need to read all collections that may have been modified by the user
 		// and report all changes back to the fresh realm
-		let oldObjects	= backupRealm.objects(TestData.self)
+		let oldObjects	= backupRealm.objects(UserData.self)
 		
 		do {
 			try realm.write {
 				// Reads all objects, and applies changes
 				for anObject in oldObjects {
-					realm.create(TestData.self, value: anObject, update: .modified)
+					realm.create(UserData.self, value: anObject, update: .modified)
 				}
 			}
 			
@@ -190,6 +202,7 @@ class ViewController: UIViewController {
 		return FileManager.default.fileExists(atPath: userDirectoryURL.path)
 	}
 	
+	// This is used only for sync opening: for async, we attach to the AsyncOpenTask instead
 	func realmSetupProgress(for session: SyncSession?) {
 		guard let session = session else {
 			log("Invalid session for progress notification")
@@ -197,15 +210,27 @@ class ViewController: UIViewController {
 			return
 		}
 		
+		progressAmount	= 0
 		progressToken	= session.addProgressNotification(for: .download,
-		             	                                  mode: .forCurrentlyOutstandingWork) { [weak self] progress in
+		             	                                  mode: .reportIndefinitely) { [weak self] progress in
 			if progress.isTransferComplete {
+				self?.progressToken?.invalidate()
+				self?.progressToken		= nil
+				self?.progressAmount	= 0
+
 				DispatchQueue.main.async { [weak self] in
 					self?.log("Transfer finished")
 				}
 			} else {
 				DispatchQueue.main.async { [weak self] in
-					self?.log("Transferred \(progress.transferredBytes) of \(progress.transferrableBytes)…")
+					// This can be called multiple times for the same progress, so skip duplicates
+					guard let self = self, progress.transferredBytes > self.progressAmount else { return }
+					
+					let transferredStr		= self.numFormatter.string(from: NSNumber(value: progress.transferredBytes))
+					let transferrableStr	= self.numFormatter.string(from: NSNumber(value: progress.transferrableBytes))
+					
+					self.progressAmount		= progress.transferredBytes
+					self.log("Transferred \(transferredStr ?? "??") of \(transferrableStr ?? "??")…")
 				}
 			}
 		}
@@ -280,15 +305,13 @@ class ViewController: UIViewController {
 		
 		realmSetupClientReset()
 
-		Realm.asyncOpen(configuration: config,
-		                callbackQueue: DispatchQueue.main) { [weak self] result in
+		let task	= Realm.asyncOpen(configuration: config,
+		        	                  callbackQueue: DispatchQueue.main) { [weak self] result in
 			switch result {
 			case let .success(openRealm):
 				self?.realm = openRealm
 				
 				self?.log("Opened \(partitionValue) Realm (async)")
-				
-				self?.realmSetupProgress(for: openRealm.syncSession)
 				
 				self?.realmRestore()
 				self?.realmSetup()
@@ -296,6 +319,22 @@ class ViewController: UIViewController {
 			case let .failure(error):
 				self?.log("Error: \(error.localizedDescription)")
 				self?.realmCleanup(delete: false)
+			}
+		}
+		
+		progressAmount	= 0
+		task.addProgressNotification(queue: .main) { [weak self] progress in
+			if progress.isTransferComplete {
+				self?.progressAmount	= 0
+				self?.log("Transfer finished")
+			} else {
+				guard let self = self, progress.transferredBytes > self.progressAmount else { return }
+				
+				let transferredStr		= self.numFormatter.string(from: NSNumber(value: progress.transferredBytes))
+				let transferrableStr	= self.numFormatter.string(from: NSNumber(value: progress.transferrableBytes))
+				
+				self.progressAmount		= progress.transferredBytes
+				self.log("Transferred \(transferredStr ?? "??") of \(transferrableStr ?? "??")…")
 			}
 		}
 	}
@@ -319,7 +358,7 @@ class ViewController: UIViewController {
 		}
 		
 		// Access objects in the realm, sorted by _id so that the ordering is defined.
-		objects = realm.objects(TestData.self).sorted(byKeyPath: "_id")
+		objects = realm.objects(UserData.self).sorted(byKeyPath: "_id")
 
 		guard objects != nil else {
 			log("Error: No objects found")
@@ -383,22 +422,26 @@ class ViewController: UIViewController {
 	
 	// MARK: - DB Fill in - just an example here
 	
-	fileprivate func createDocument() -> TestData {
-		let document	= TestData()
+	fileprivate func createDocument(index: Int) -> UserData {
+		let document	= UserData()
+		let embedded	= UserEmbed()
 		
-		document._partition			= partitionValue
-		document.doubleValue.value	= Double(arc4random_uniform(100000)) / 100.0
-		document.longInt.value		= Int(arc4random_uniform(1000000))
-		document.mediumInt.value	= Int(arc4random_uniform(1000))
-
+		document._partition	= partitionValue
+		document.name		= "User Number \(index)"
+		
+		embedded.embeddedName	= "Embedded for user \(index)"
+		embedded.embeddedNumber	= 0
+		
+		document.embedded.append(embedded)
+		
 		return document
 	}
 	
-	fileprivate func createDocumentList() -> [TestData] {
-		var docList	= [TestData]()
+	fileprivate func createDocumentList() -> [UserData] {
+		var docList	= [UserData]()
 		
-		for _ in 0 ..< 500 {
-			let document	= createDocument()
+		for ii in 0 ..< 500 {
+			let document	= createDocument(index: ii)
 			
 			docList.append(document)
 		}
@@ -408,12 +451,32 @@ class ViewController: UIViewController {
 	
 	@IBAction func insertTestData() {
 		do {
-			let documentList	= createDocumentList()
-			
-			try realm?.write { [weak self] in
-				self?.realm?.add(documentList, update: .modified)
+			if objects.isEmpty {
+				let documentList	= createDocumentList()
+				
+				try realm?.write { [weak self] in
+					guard let realm = self?.realm else { return }
+					
+					realm.add(documentList, update: .modified)
+				}
+				log("Inserted: \(documentList.count) documents")
+			} else {
+				guard let localRealm = realm else { return }
+				
+				// Add new data to embedded array
+				try localRealm.write { [weak self] in
+					
+					self?.objects.forEach {
+						let embedded	= UserEmbed()
+						
+						embedded.embeddedName	= "Additional data for \($0.name ?? "Unknown")"
+						embedded.embeddedNumber	= $0.embedded.count
+						
+						$0.embedded.append(embedded)
+					}
+				}
+				log("Updated: \(objects.count) documents")
 			}
-			log("Inserted: \(documentList.count) documents")
 		} catch {
 			log("Error inserting: \(error.localizedDescription)")
 		}
