@@ -37,10 +37,11 @@ class UserData: Object {
 		return "_id"
 	}
 }
+
 let objectClass	= UserData.self
 
 func syncLog(level: SyncLogLevel, message: String) {
-	Logger.log("Sync: (\(level.rawValue)) \(message)")
+	Logger.log(level: level.rawValue, message: message)
 }
 
 class ViewController: UIViewController {
@@ -67,6 +68,9 @@ class ViewController: UIViewController {
 		
 		numFormatter.numberStyle	= .decimal
 		
+		Logger.analyseTrace		= true
+		Logger.callback			= log(_:)
+
 		view.backgroundColor	= .systemBackground
 		
 		var textFrame			= view.bounds
@@ -94,7 +98,7 @@ class ViewController: UIViewController {
 
 		log("Application started")
 		
-		app.syncManager.logLevel	= .detail
+		app.syncManager.logLevel	= .trace
 		app.syncManager.logger		= syncLog
 
 		if let user = app.currentUser {
