@@ -4,7 +4,7 @@
 //
 //  Created by Paolo Manna on 21/01/2021.
 //
-// NOTE: The class of the objects handled here is set at TestData, change it to the one in your app
+// NOTE: The class of the objects handled here is set at UserData, change it to the one in your app
 
 import RealmSwift
 import UIKit
