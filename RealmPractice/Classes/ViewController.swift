@@ -41,10 +41,6 @@ class UserData: Object {
 
 let objectClass	= UserData.self
 
-func syncLog(level: SyncLogLevel, message: String) {
-	Logger.log(level: level.rawValue, message: message)
-}
-
 class ViewController: UIViewController {
 	let dateFormatter	= ISO8601DateFormatter()
 	let numFormatter	= NumberFormatter()
@@ -69,7 +65,7 @@ class ViewController: UIViewController {
 		
 		numFormatter.numberStyle	= .decimal
 		
-		Logger.analyseTrace		= true
+		Logger.analyseTrace		= false
 		Logger.callback			= log(_:)
 
 		view.backgroundColor	= .systemBackground
@@ -100,7 +96,9 @@ class ViewController: UIViewController {
 		log("Application started")
 		
 		app.syncManager.logLevel	= .trace
-		app.syncManager.logger		= syncLog
+		app.syncManager.logger		= { level, message in
+			Logger.log(level: level.rawValue, message: message)
+		}
 
 		if let user = app.currentUser {
 			log("Skipped login, syncing…")
